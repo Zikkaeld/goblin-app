@@ -14,6 +14,8 @@ interface SoloRollProps {
   onRoll: () => void;
   onWatchAd: (reward: 1 | 3) => void;
   onShare: (message: string) => void;
+  completedThemeIds: ThemeId[];
+  streak: number;
 }
 
 export default function SoloRoll({
@@ -24,16 +26,45 @@ export default function SoloRoll({
   onRoll,
   onWatchAd,
   onShare,
+  completedThemeIds,
+  streak,
 }: SoloRollProps) {
   const theme = THEME_MAP[themeId];
   const remaining = rollsRemaining(rollState);
+  const questDone = completedThemeIds.length >= 4;
+  const placeholders = Math.max(0, 4 - completedThemeIds.length);
 
   return (
     <div className="view">
-      <h2 className="view__title">Соло-ролл 🎲</h2>
+      <div className="view__header-row">
+        <h2 className="view__title">Соло-ролл 🎲</h2>
+        <div className={`solo-streak-badge ${questDone ? 'solo-streak-badge--lit' : ''}`}>🔥 {streak}</div>
+      </div>
       <p className="view__subtitle">
         Кидай кубик сам, без кімнати й учасників — обери будь-яку тему. Ці кидки не рахуються в жоден спільний вогник.
       </p>
+
+      <div className="panel">
+        <h3 className="panel__title">
+          Денний квест: {Math.min(completedThemeIds.length, 4)}/4 тем
+        </h3>
+        <div className="quest-chips">
+          {completedThemeIds.map((id) => {
+            const t = THEME_MAP[id];
+            return (
+              <span key={id} className="quest-chip quest-chip--done">
+                ✅ {t.emoji} {t.label}
+              </span>
+            );
+          })}
+          {Array.from({ length: placeholders }).map((_, i) => (
+            <span key={`empty-${i}`} className="quest-chip quest-chip--pending">
+              ❔ ще тема
+            </span>
+          ))}
+        </div>
+        {questDone && <p className="panel__hint">Квест виконано сьогодні! 🎉</p>}
+      </div>
 
       <div className="panel">
         <h3 className="panel__title">Обери тему</h3>

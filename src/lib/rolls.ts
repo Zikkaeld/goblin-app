@@ -3,17 +3,22 @@ import { todayDateString } from './date';
 import { findFlavorByTitle } from '../data';
 import type { Rarity, RollResult, ThemeId } from '../types';
 
-export async function recordRoll(roomId: string, profileId: string, result: RollResult): Promise<void> {
-  const { error } = await supabase.from('rolls').insert({
-    room_id: roomId,
-    profile_id: profileId,
-    result_title: result.title,
-    result_emoji: result.emoji,
-    rarity: result.rarity,
-    rolled_at: todayDateString(),
-    theme_id: result.themeId,
-  });
+export async function recordRoll(roomId: string | null, profileId: string, result: RollResult): Promise<string> {
+  const { data, error } = await supabase
+    .from('rolls')
+    .insert({
+      room_id: roomId,
+      profile_id: profileId,
+      result_title: result.title,
+      result_emoji: result.emoji,
+      rarity: result.rarity,
+      rolled_at: todayDateString(),
+      theme_id: result.themeId,
+    })
+    .select('id')
+    .single();
   if (error) throw error;
+  return data.id;
 }
 
 interface TodayRolls {
@@ -44,6 +49,44 @@ export async function fetchMyRollsToday(roomId: string, profileId: string, theme
           flavor: findFlavorByTitle(themeId, last.result_title),
           rarity: last.rarity as Rarity,
           themeId,
+        }
+      : null,
+  };
+}
+
+export interface SoloRollsToday {
+  count: number;
+  completedThemeIds: ThemeId[];
+  lastResult: RollResult | null;
+}
+
+export async function fetchSoloRollsToday(profileId: string): Promise<SoloRollsToday> {
+  const { data, error } = await supabase
+    .from('rolls')
+    .select('result_title, result_emoji, rarity, theme_id, created_at')
+    .eq('profile_id', profileId)
+    .is('room_id', null)
+    .eq('rolled_at', todayDateString())
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+
+  const rows = data ?? [];
+  const last = rows[rows.length - 1];
+  const completedThemeIds = Array.from(
+    new Set(rows.map((row) => row.theme_id).filter((t): t is ThemeId => t !== null))
+  );
+
+  return {
+    count: rows.length,
+    completedThemeIds,
+    lastResult: last
+      ? {
+          resultId: `solo-${last.created_at}`,
+          title: last.result_title,
+          emoji: last.result_emoji,
+          flavor: findFlavorByTitle(last.theme_id as ThemeId, last.result_title),
+          rarity: last.rarity as Rarity,
+          themeId: last.theme_id as ThemeId,
         }
       : null,
   };

@@ -34,10 +34,18 @@ export interface RollResult {
   themeId: ThemeId;
 }
 
+export interface ReactionSummary {
+  emoji: string;
+  count: number;
+  reactedByMe: boolean;
+}
+
 export interface MemberTodayResult {
+  rollId: string;
   title: string;
   emoji: string;
   rarity: Rarity;
+  reactions: ReactionSummary[];
 }
 
 export interface Member {
@@ -58,6 +66,7 @@ export interface Room {
   members: Member[];
   streak: number;
   rolledTodayMemberIds: string[];
+  brokenStreakValue: number | null;
 }
 
 export interface RollLimitState {

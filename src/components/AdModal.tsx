@@ -1,10 +1,11 @@
 interface AdModalProps {
   reward: number;
+  confirmLabel?: string;
   onClose: () => void;
   onConfirm: () => void;
 }
 
-export default function AdModal({ reward, onClose, onConfirm }: AdModalProps) {
+export default function AdModal({ reward, confirmLabel, onClose, onConfirm }: AdModalProps) {
   return (
     <div className="ad-modal-overlay" onClick={onClose}>
       <div className="ad-modal" onClick={(e) => e.stopPropagation()}>
@@ -14,7 +15,7 @@ export default function AdModal({ reward, onClose, onConfirm }: AdModalProps) {
           <span className="ad-modal__sub">(заглушка, без реальної інтеграції)</span>
         </div>
         <button type="button" className="btn btn--primary" onClick={onConfirm}>
-          Готово, дай +{reward} {reward === 1 ? 'кидок' : 'кидки'}
+          {confirmLabel ?? `Готово, дай +${reward} ${reward === 1 ? 'кидок' : 'кидки'}`}
         </button>
         <button type="button" className="btn btn--ghost" onClick={onClose}>
           Скасувати

@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { todayDateString, yesterdayDateString } from './date';
 
 export interface Profile {
   id: string;
@@ -23,4 +24,38 @@ export async function createProfile(nickname: string): Promise<Profile> {
   localStorage.setItem(PROFILE_ID_KEY, profile.id);
   localStorage.setItem(PROFILE_NICKNAME_KEY, profile.nickname);
   return profile;
+}
+
+export interface SoloStreakInfo {
+  streak: number;
+  updatedAt: string | null;
+}
+
+export async function fetchSoloStreakInfo(profileId: string): Promise<SoloStreakInfo> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('solo_streak, solo_streak_updated_at')
+    .eq('id', profileId)
+    .single();
+  if (error) throw error;
+  return { streak: data.solo_streak ?? 0, updatedAt: data.solo_streak_updated_at };
+}
+
+export async function completeSoloQuest(
+  profileId: string,
+  currentStreak: number,
+  updatedAt: string | null
+): Promise<number> {
+  const today = todayDateString();
+  if (updatedAt === today) {
+    return currentStreak;
+  }
+
+  const newStreak = updatedAt === yesterdayDateString() ? currentStreak + 1 : 1;
+  const { error } = await supabase
+    .from('profiles')
+    .update({ solo_streak: newStreak, solo_streak_updated_at: today })
+    .eq('id', profileId);
+  if (error) throw error;
+  return newStreak;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useProfile } from '../context/ProfileContext';
 import { rollForTheme } from '../data';
@@ -12,8 +12,13 @@ import {
   updateRoomDetails,
   removeMemberFromRoom,
   deleteRoom,
+  recoverStreak,
 } from '../lib/rooms';
-import { fetchMyRollsToday, recordRoll } from '../lib/rolls';
+import { fetchMyRollsToday, fetchSoloRollsToday, recordRoll } from '../lib/rolls';
+import { completeSoloQuest, fetchSoloStreakInfo } from '../lib/profile';
+import { fetchReactionsForRolls, summarizeReactions, toggleReaction } from '../lib/reactions';
+import type { ReactionRow } from '../lib/reactions';
+import { todayDateString } from '../lib/date';
 import { supabase } from '../lib/supabase';
 import NavTabs, { type MainView } from '../components/NavTabs';
 import RoomsList from '../components/RoomsList';
@@ -25,12 +30,12 @@ import Toast from '../components/Toast';
 
 const EMPTY_ROLL_STATE: RollLimitState = { freeUsed: 0, extra: 0 };
 
-interface AdRequest {
-  context: string | 'solo';
-  reward: 1 | 3;
-}
+type AdRequest =
+  | { kind: 'rollBonus'; context: string | 'solo'; reward: 1 | 3 }
+  | { kind: 'streakRecovery'; roomId: string; streakValue: number };
 
 interface RollInsertRow {
+  id: string;
   room_id: string;
   profile_id: string;
   result_title: string;
@@ -41,6 +46,7 @@ interface RollInsertRow {
 interface RoomStreakRow {
   id: string;
   streak: number;
+  broken_streak_value: number | null;
 }
 
 export default function MainApp() {
@@ -60,6 +66,9 @@ export default function MainApp() {
   const [soloTheme, setSoloTheme] = useState<ThemeId>('goblin');
   const [soloRollState, setSoloRollState] = useState<RollLimitState>(EMPTY_ROLL_STATE);
   const [soloResult, setSoloResult] = useState<RollResult | null>(null);
+  const [soloCompletedThemeIds, setSoloCompletedThemeIds] = useState<ThemeId[]>([]);
+  const [soloStreak, setSoloStreak] = useState(0);
+  const [soloStreakUpdatedAt, setSoloStreakUpdatedAt] = useState<string | null>(null);
 
   const [adModal, setAdModal] = useState<AdRequest | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -72,6 +81,16 @@ export default function MainApp() {
     if (toastTimeout.current) window.clearTimeout(toastTimeout.current);
     toastTimeout.current = window.setTimeout(() => setToast(null), 2500);
   }
+
+  const activeRoomRollIdsKey = useMemo(() => {
+    const room = rooms.find((r) => r.id === activeRoomId);
+    if (!room) return '';
+    return room.members
+      .map((m) => m.todayResult?.rollId)
+      .filter((id): id is string => !!id)
+      .sort()
+      .join(',');
+  }, [rooms, activeRoomId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +134,23 @@ export default function MainApp() {
   }, [activeRoomId, profile.id]);
 
   useEffect(() => {
+    let cancelled = false;
+    Promise.all([fetchSoloRollsToday(profile.id), fetchSoloStreakInfo(profile.id)])
+      .then(([today, streakInfo]) => {
+        if (cancelled) return;
+        setSoloRollState({ freeUsed: today.count, extra: 0 });
+        setSoloCompletedThemeIds(today.completedThemeIds);
+        if (today.lastResult) setSoloResult(today.lastResult);
+        setSoloStreak(streakInfo.streak);
+        setSoloStreakUpdatedAt(streakInfo.updatedAt);
+      })
+      .catch(() => showToast('Не вдалося завантажити соло-прогрес 😢'));
+    return () => {
+      cancelled = true;
+    };
+  }, [profile.id]);
+
+  useEffect(() => {
     if (!activeRoomId) return;
 
     // Унікальний суфікс на кожен виклик ефекту: supabase.channel() повертає вже
@@ -143,7 +179,16 @@ export default function MainApp() {
                 : [...r.rolledTodayMemberIds, row.profile_id];
               const newMembers = r.members.map((m) =>
                 m.id === row.profile_id
-                  ? { ...m, todayResult: { title: row.result_title, emoji: row.result_emoji, rarity: row.rarity } }
+                  ? {
+                      ...m,
+                      todayResult: {
+                        rollId: row.id,
+                        title: row.result_title,
+                        emoji: row.result_emoji,
+                        rarity: row.rarity,
+                        reactions: [],
+                      },
+                    }
                   : m
               );
               return { ...r, rolledTodayMemberIds: newRolledIds, members: newMembers };
@@ -165,7 +210,11 @@ export default function MainApp() {
         { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${activeRoomId}` },
         (payload) => {
           const row = payload.new;
-          setRooms((prev) => prev.map((r) => (r.id === row.id ? { ...r, streak: row.streak } : r)));
+          setRooms((prev) =>
+            prev.map((r) =>
+              r.id === row.id ? { ...r, streak: row.streak, brokenStreakValue: row.broken_streak_value } : r
+            )
+          );
         }
       )
       .subscribe();
@@ -175,6 +224,104 @@ export default function MainApp() {
       setNewlyArrivedMemberIds([]);
     };
   }, [activeRoomId, profile.id]);
+
+  useEffect(() => {
+    if (!activeRoomId || !activeRoomRollIdsKey) return;
+    const rollIds = activeRoomRollIdsKey.split(',');
+
+    function applyReactionRows(rows: ReactionRow[]) {
+      setRooms((prev) =>
+        prev.map((r) => {
+          if (r.id !== activeRoomId) return r;
+          const newMembers = r.members.map((m) =>
+            m.todayResult
+              ? { ...m, todayResult: { ...m.todayResult, reactions: summarizeReactions(rows, m.todayResult.rollId, profile.id) } }
+              : m
+          );
+          return { ...r, members: newMembers };
+        })
+      );
+    }
+
+    const channelName = `reactions-${activeRoomId}-${Math.random().toString(36).slice(2, 10)}`;
+
+    const channel = supabase
+      .channel(channelName)
+      .on<{ id: string; roll_id: string; reactor_id: string; emoji: string }>(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'reactions', filter: `roll_id=in.(${rollIds.join(',')})` },
+        (payload) => {
+          const row = payload.new;
+          if (row.reactor_id === profile.id) return; // власна дія вже застосована оптимістично
+
+          setRooms((prev) =>
+            prev.map((r) => {
+              if (r.id !== activeRoomId) return r;
+              const newMembers = r.members.map((m) => {
+                if (!m.todayResult || m.todayResult.rollId !== row.roll_id) return m;
+                const existing = m.todayResult.reactions;
+                const idx = existing.findIndex((e) => e.emoji === row.emoji);
+                const newReactions =
+                  idx === -1
+                    ? [...existing, { emoji: row.emoji, count: 1, reactedByMe: false }]
+                    : existing.map((e, i) => (i === idx ? { ...e, count: e.count + 1 } : e));
+                return { ...m, todayResult: { ...m.todayResult, reactions: newReactions } };
+              });
+              return { ...r, members: newMembers };
+            })
+          );
+        }
+      )
+      .on(
+        // DELETE-подія для reactions за замовчуванням не містить roll_id/emoji
+        // (REPLICA IDENTITY = тільки первинний ключ), тому фільтр по roll_id
+        // для DELETE не спрацює — підписуємось без фільтра й перевибираємо
+        // реакції кімнати напряму.
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'reactions' },
+        () => {
+          fetchReactionsForRolls(rollIds)
+            .then(applyReactionRows)
+            .catch(() => {});
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeRoomId, activeRoomRollIdsKey, profile.id]);
+
+  async function handleToggleReaction(roomId: string, rollId: string, emoji: string) {
+    try {
+      const action = await toggleReaction(rollId, profile.id, emoji);
+      setRooms((prev) =>
+        prev.map((r) => {
+          if (r.id !== roomId) return r;
+          const newMembers = r.members.map((m) => {
+            if (!m.todayResult || m.todayResult.rollId !== rollId) return m;
+            const existing = m.todayResult.reactions;
+            let newReactions;
+            if (action === 'added') {
+              const idx = existing.findIndex((e) => e.emoji === emoji);
+              newReactions =
+                idx === -1
+                  ? [...existing, { emoji, count: 1, reactedByMe: true }]
+                  : existing.map((e, i) => (i === idx ? { ...e, count: e.count + 1, reactedByMe: true } : e));
+            } else {
+              newReactions = existing
+                .map((e) => (e.emoji === emoji ? { ...e, count: e.count - 1, reactedByMe: false } : e))
+                .filter((e) => e.count > 0);
+            }
+            return { ...m, todayResult: { ...m.todayResult, reactions: newReactions } };
+          });
+          return { ...r, members: newMembers };
+        })
+      );
+    } catch {
+      showToast('Не вдалося поставити реакцію 😢');
+    }
+  }
 
   async function handleCreateRoom(name: string, themeId: ThemeId) {
     const room = await createRoom(profile.id, name, themeId);
@@ -189,8 +336,9 @@ export default function MainApp() {
     if (rollsRemaining(state) <= 0) return;
 
     const result = rollForTheme(room.themeId);
+    let rollId: string;
     try {
-      await recordRoll(roomId, profile.id, result);
+      rollId = await recordRoll(roomId, profile.id, result);
     } catch {
       showToast('Не вдалося зберегти кидок 😢');
       return;
@@ -209,7 +357,10 @@ export default function MainApp() {
         if (r.id !== roomId) return r;
         const newMembers = r.members.map((m) =>
           m.id === profile.id
-            ? { ...m, todayResult: { title: result.title, emoji: result.emoji, rarity: result.rarity } }
+            ? {
+                ...m,
+                todayResult: { rollId, title: result.title, emoji: result.emoji, rarity: result.rarity, reactions: [] },
+              }
             : m
         );
         return { ...r, rolledTodayMemberIds: newRolledIds, streak: newStreak, members: newMembers };
@@ -223,11 +374,36 @@ export default function MainApp() {
     }
   }
 
-  function handleSoloRoll() {
+  async function handleSoloRoll() {
     if (rollsRemaining(soloRollState) <= 0) return;
     const result = rollForTheme(soloTheme);
+    try {
+      await recordRoll(null, profile.id, result);
+    } catch {
+      showToast('Не вдалося зберегти кидок 😢');
+      return;
+    }
+
     setSoloRollState((prev) => ({ ...prev, freeUsed: prev.freeUsed + 1 }));
     setSoloResult(result);
+
+    const alreadyCompletedTheme = soloCompletedThemeIds.includes(soloTheme);
+    const newCompletedThemeIds = alreadyCompletedTheme ? soloCompletedThemeIds : [...soloCompletedThemeIds, soloTheme];
+    setSoloCompletedThemeIds(newCompletedThemeIds);
+
+    const justCompletedQuest =
+      !alreadyCompletedTheme && soloCompletedThemeIds.length === 3 && newCompletedThemeIds.length === 4;
+
+    if (justCompletedQuest && soloStreakUpdatedAt !== todayDateString()) {
+      try {
+        const newStreak = await completeSoloQuest(profile.id, soloStreak, soloStreakUpdatedAt);
+        setSoloStreak(newStreak);
+        setSoloStreakUpdatedAt(todayDateString());
+        showToast(`Денний квест виконано! Соло-стрік: ${newStreak} 🔥`);
+      } catch {
+        showToast('Не вдалося оновити соло-стрік 😢');
+      }
+    }
   }
 
   async function handleRoomThemeChange(roomId: string, themeId: ThemeId) {
@@ -265,8 +441,24 @@ export default function MainApp() {
     setRooms((prev) => prev.filter((r) => r.id !== roomId));
   }
 
-  function confirmAd() {
+  async function confirmAd() {
     if (!adModal) return;
+
+    if (adModal.kind === 'streakRecovery') {
+      const { roomId, streakValue } = adModal;
+      setAdModal(null);
+      try {
+        await recoverStreak(roomId, streakValue);
+        setRooms((prev) =>
+          prev.map((r) => (r.id === roomId ? { ...r, streak: streakValue, brokenStreakValue: null } : r))
+        );
+        showToast(`Вогник відновлено до ${streakValue}! 🔥`);
+      } catch {
+        showToast('Не вдалося відновити вогник 😢');
+      }
+      return;
+    }
+
     if (adModal.context === 'solo') {
       setSoloRollState((prev) => ({ ...prev, extra: prev.extra + adModal.reward }));
     } else {
@@ -316,15 +508,20 @@ export default function MainApp() {
             rollState={roomRollStates[activeRoom.id] ?? EMPTY_ROLL_STATE}
             lastResult={roomResults[activeRoom.id] ?? null}
             onRoll={() => handleRoomRoll(activeRoom.id)}
-            onWatchAd={(reward) => setAdModal({ context: activeRoom.id, reward })}
+            onWatchAd={(reward) => setAdModal({ kind: 'rollBonus', context: activeRoom.id, reward })}
             onBack={() => setActiveRoomId(null)}
             onShare={showToast}
             onChangeTheme={(themeId) => handleRoomThemeChange(activeRoom.id, themeId)}
             onUpdateRoomDetails={(name, icon) => handleUpdateRoomDetails(activeRoom.id, name, icon)}
             onRemoveMember={(profileId) => handleRemoveMember(activeRoom.id, profileId)}
             onDeleteRoom={() => handleDeleteRoom(activeRoom.id)}
+            onRecoverStreak={() => {
+              if (activeRoom.brokenStreakValue === null) return;
+              setAdModal({ kind: 'streakRecovery', roomId: activeRoom.id, streakValue: activeRoom.brokenStreakValue });
+            }}
             justCompletedStreak={justCompletedStreakRoomId === activeRoom.id}
             newlyArrivedMemberIds={newlyArrivedMemberIds}
+            onToggleReaction={(rollId, emoji) => handleToggleReaction(activeRoom.id, rollId, emoji)}
           />
         )}
 
@@ -338,15 +535,24 @@ export default function MainApp() {
             rollState={soloRollState}
             lastResult={soloResult}
             onRoll={handleSoloRoll}
-            onWatchAd={(reward) => setAdModal({ context: 'solo', reward })}
+            onWatchAd={(reward) => setAdModal({ kind: 'rollBonus', context: 'solo', reward })}
             onShare={showToast}
+            completedThemeIds={soloCompletedThemeIds}
+            streak={soloStreak}
           />
         )}
 
         {mainView === 'collection' && <CollectionView />}
       </main>
 
-      {adModal && <AdModal reward={adModal.reward} onClose={() => setAdModal(null)} onConfirm={confirmAd} />}
+      {adModal && (
+        <AdModal
+          reward={adModal.kind === 'rollBonus' ? adModal.reward : 0}
+          confirmLabel={adModal.kind === 'streakRecovery' ? 'Готово, відновити вогник 🔥' : undefined}
+          onClose={() => setAdModal(null)}
+          onConfirm={confirmAd}
+        />
+      )}
       {toast && <Toast message={toast} />}
     </div>
   );

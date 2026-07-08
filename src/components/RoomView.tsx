@@ -21,6 +21,8 @@ interface RoomViewProps {
   onUpdateRoomDetails: (name: string, icon: string) => Promise<void>;
   onRemoveMember: (profileId: string) => Promise<void>;
   onDeleteRoom: () => Promise<void>;
+  onRecoverStreak: () => void;
+  onToggleReaction: (rollId: string, emoji: string) => void;
   justCompletedStreak: boolean;
   newlyArrivedMemberIds: string[];
 }
@@ -38,6 +40,8 @@ export default function RoomView({
   onUpdateRoomDetails,
   onRemoveMember,
   onDeleteRoom,
+  onRecoverStreak,
+  onToggleReaction,
   justCompletedStreak,
   newlyArrivedMemberIds,
 }: RoomViewProps) {
@@ -99,9 +103,25 @@ export default function RoomView({
         <div className="streak-toast">🔥 Вогник кімнати зріс до {room.streak}! Усі кинули кубик сьогодні!</div>
       )}
 
+      {room.brokenStreakValue !== null && (
+        <div className="streak-recover-banner">
+          <p>
+            Вогник згас 😢 Був стрік {room.brokenStreakValue} {room.brokenStreakValue === 1 ? 'день' : 'днів'}.
+            Відновити?
+          </p>
+          <button type="button" className="btn btn--ad" onClick={onRecoverStreak}>
+            📺 Дивитись рекламу і відновити
+          </button>
+        </div>
+      )}
+
       <div className="panel">
         <h3 className="panel__title">Учасники</h3>
-        <MembersList members={room.members} newlyArrivedMemberIds={newlyArrivedMemberIds} />
+        <MembersList
+          members={room.members}
+          newlyArrivedMemberIds={newlyArrivedMemberIds}
+          onToggleReaction={onToggleReaction}
+        />
         {!allRolledToday && waitingFor.length > 0 && (
           <p className="panel__hint">Ще чекаємо на: {waitingFor.map((m) => m.name).join(', ')}</p>
         )}
