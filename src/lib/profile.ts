@@ -6,23 +6,42 @@ export interface Profile {
   nickname: string;
 }
 
-const PROFILE_ID_KEY = 'goblin_profile_id';
-const PROFILE_NICKNAME_KEY = 'goblin_profile_nickname';
+const NICKNAME_CACHE_KEY = 'goblin_profile_nickname_cache';
 
-export function getStoredProfile(): Profile | null {
-  const id = localStorage.getItem(PROFILE_ID_KEY);
-  const nickname = localStorage.getItem(PROFILE_NICKNAME_KEY);
-  if (!id || !nickname) return null;
-  return { id, nickname };
+async function ensureAuthSession(): Promise<string> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (session?.user) {
+    return session.user.id;
+  }
+
+  const { data, error } = await supabase.auth.signInAnonymously();
+  if (error || !data.session?.user) {
+    throw error ?? new Error('Не вдалося створити анонімну сесію');
+  }
+  return data.session.user.id;
+}
+
+export async function resolveProfile(): Promise<Profile | null> {
+  const userId = await ensureAuthSession();
+
+  const { data, error } = await supabase.from('profiles').select('id, nickname').eq('id', userId).maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  localStorage.setItem(NICKNAME_CACHE_KEY, data.nickname);
+  return { id: data.id, nickname: data.nickname };
 }
 
 export async function createProfile(nickname: string): Promise<Profile> {
-  const { data, error } = await supabase.from('profiles').insert({ nickname }).select().single();
+  const userId = await ensureAuthSession();
+
+  const { data, error } = await supabase.from('profiles').insert({ id: userId, nickname }).select().single();
   if (error || !data) throw error ?? new Error('Не вдалося створити профіль');
 
   const profile: Profile = { id: data.id, nickname: data.nickname };
-  localStorage.setItem(PROFILE_ID_KEY, profile.id);
-  localStorage.setItem(PROFILE_NICKNAME_KEY, profile.nickname);
+  localStorage.setItem(NICKNAME_CACHE_KEY, profile.nickname);
   return profile;
 }
 
