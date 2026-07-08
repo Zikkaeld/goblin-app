@@ -16,6 +16,7 @@ interface SoloRollProps {
   onShare: (message: string) => void;
   completedThemeIds: ThemeId[];
   streak: number;
+  history: RollResult[];
 }
 
 export default function SoloRoll({
@@ -28,6 +29,7 @@ export default function SoloRoll({
   onShare,
   completedThemeIds,
   streak,
+  history,
 }: SoloRollProps) {
   const theme = THEME_MAP[themeId];
   const remaining = rollsRemaining(rollState);
@@ -88,6 +90,28 @@ export default function SoloRoll({
           />
         )}
       </div>
+
+      {history.length > 0 && (
+        <div className="panel">
+          <h3 className="panel__title">Сьогодні вже кидав:</h3>
+          <div className="solo-history-list">
+            {history.map((entry) => {
+              const rarity = RARITY_MAP[entry.rarity];
+              const entryTheme = THEME_MAP[entry.themeId];
+              return (
+                <div key={entry.resultId} className="solo-history-row" style={{ borderColor: rarity.color }}>
+                  <span className="solo-history-row__theme-emoji">{entryTheme.emoji}</span>
+                  <span className="solo-history-row__result-emoji">{entry.emoji}</span>
+                  <span className="solo-history-row__title">{entry.title}</span>
+                  <span className="solo-history-row__rarity" style={{ color: rarity.color }}>
+                    {rarity.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

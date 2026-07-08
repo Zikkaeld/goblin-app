@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { daysBetweenDateStrings, todayDateString, yesterdayDateString } from './date';
+import { daysBetweenDateStrings, dateStringFromTimestamp, todayDateString, yesterdayDateString } from './date';
 import { avatarForId } from './avatar';
 import { fetchReactionsForRolls, summarizeReactions } from './reactions';
 import type { Member, Rarity, Room, ThemeId } from '../types';
@@ -14,6 +14,7 @@ export interface DbRoomRow {
   icon: string | null;
   broken_streak_value: number | null;
   streak_broken_at: string | null;
+  created_at: string;
 }
 
 const INVITE_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -37,6 +38,16 @@ interface StreakState {
 
 async function resolveStreakState(dbRoom: DbRoomRow, memberCount: number): Promise<StreakState> {
   const today = todayDateString();
+  const yesterday = yesterdayDateString();
+
+  // Кімната створена сьогодні або вчора — перевіряти "чи вчора всі кинули"
+  // безглуздо, бо вчора кімнати могло ще не існувати (чи вона існувала лише
+  // частину дня). Без цього захисту щойно створені кімнати з першим-таки
+  // денним завершенням (streak > 0) хибно позначались як "зірвані".
+  const roomCreatedDate = dateStringFromTimestamp(dbRoom.created_at);
+  if (roomCreatedDate === today || roomCreatedDate === yesterday) {
+    return { streak: dbRoom.streak, brokenStreakValue: dbRoom.broken_streak_value };
+  }
 
   if (dbRoom.broken_streak_value !== null && dbRoom.streak_broken_at !== null) {
     const daysSince = daysBetweenDateStrings(dbRoom.streak_broken_at, today);
@@ -52,7 +63,6 @@ async function resolveStreakState(dbRoom: DbRoomRow, memberCount: number): Promi
   }
 
   if (dbRoom.streak > 0) {
-    const yesterday = yesterdayDateString();
     const { data, error } = await supabase
       .from('rolls')
       .select('profile_id')
@@ -142,7 +152,9 @@ async function hydrateRoom(dbRoom: DbRoomRow, currentProfileId: string): Promise
 export async function fetchMyRooms(profileId: string): Promise<Room[]> {
   const { data, error } = await supabase
     .from('room_members')
-    .select('rooms(id, name, theme_id, owner_id, invite_code, streak, icon, broken_streak_value, streak_broken_at)')
+    .select(
+      'rooms(id, name, theme_id, owner_id, invite_code, streak, icon, broken_streak_value, streak_broken_at, created_at)'
+    )
     .eq('profile_id', profileId);
   if (error) throw error;
 

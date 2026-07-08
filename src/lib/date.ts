@@ -15,6 +15,10 @@ function formatDate(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+export function dateStringFromTimestamp(isoTimestamp: string): string {
+  return formatDate(new Date(isoTimestamp));
+}
+
 export function daysBetweenDateStrings(from: string, to: string): number {
   const fromDate = new Date(`${from}T00:00:00`);
   const toDate = new Date(`${to}T00:00:00`);

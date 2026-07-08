@@ -58,6 +58,7 @@ export interface SoloRollsToday {
   count: number;
   completedThemeIds: ThemeId[];
   lastResult: RollResult | null;
+  history: RollResult[];
 }
 
 export async function fetchSoloRollsToday(profileId: string): Promise<SoloRollsToday> {
@@ -76,6 +77,17 @@ export async function fetchSoloRollsToday(profileId: string): Promise<SoloRollsT
     new Set(rows.map((row) => row.theme_id).filter((t): t is ThemeId => t !== null))
   );
 
+  const history: RollResult[] = rows
+    .map((row) => ({
+      resultId: `solo-${row.created_at}`,
+      title: row.result_title,
+      emoji: row.result_emoji,
+      flavor: findFlavorByTitle(row.theme_id as ThemeId, row.result_title),
+      rarity: row.rarity as Rarity,
+      themeId: row.theme_id as ThemeId,
+    }))
+    .reverse();
+
   return {
     count: rows.length,
     completedThemeIds,
@@ -89,6 +101,7 @@ export async function fetchSoloRollsToday(profileId: string): Promise<SoloRollsT
           themeId: last.theme_id as ThemeId,
         }
       : null,
+    history,
   };
 }
 

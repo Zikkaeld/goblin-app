@@ -69,6 +69,7 @@ export default function MainApp() {
   const [soloCompletedThemeIds, setSoloCompletedThemeIds] = useState<ThemeId[]>([]);
   const [soloStreak, setSoloStreak] = useState(0);
   const [soloStreakUpdatedAt, setSoloStreakUpdatedAt] = useState<string | null>(null);
+  const [soloHistory, setSoloHistory] = useState<RollResult[]>([]);
 
   const [adModal, setAdModal] = useState<AdRequest | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -143,6 +144,7 @@ export default function MainApp() {
         if (today.lastResult) setSoloResult(today.lastResult);
         setSoloStreak(streakInfo.streak);
         setSoloStreakUpdatedAt(streakInfo.updatedAt);
+        setSoloHistory(today.history);
       })
       .catch(() => showToast('Не вдалося завантажити соло-прогрес 😢'));
     return () => {
@@ -386,6 +388,7 @@ export default function MainApp() {
 
     setSoloRollState((prev) => ({ ...prev, freeUsed: prev.freeUsed + 1 }));
     setSoloResult(result);
+    setSoloHistory((prev) => [result, ...prev]);
 
     const alreadyCompletedTheme = soloCompletedThemeIds.includes(soloTheme);
     const newCompletedThemeIds = alreadyCompletedTheme ? soloCompletedThemeIds : [...soloCompletedThemeIds, soloTheme];
@@ -539,6 +542,7 @@ export default function MainApp() {
             onShare={showToast}
             completedThemeIds={soloCompletedThemeIds}
             streak={soloStreak}
+            history={soloHistory}
           />
         )}
 
