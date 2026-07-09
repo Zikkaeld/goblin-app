@@ -8,8 +8,15 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      Font choices verified for full Ukrainian Cyrillic glyph coverage (і/ї/є/ґ) —
+      see commit notes. Silkscreen and Pixelify Sans were dropped: Silkscreen has no
+      cyrillic subset at all, and Pixelify Sans claims one but ships broken glyphs
+      (д/ґ/ь render as wrong Latin look-alikes). VT323 also lacks cyrillic — kept
+      only for pure-digit counters that never contain Cyrillic text.
+    -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;500;600;700&family=VT323&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;600;700&family=VT323&display=swap"
       rel="stylesheet"
     />
 

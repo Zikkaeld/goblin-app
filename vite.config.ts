@@ -14,8 +14,8 @@ export default defineConfig({
         short_name: 'WhoU',
         description: 'Соціальний рандомайзер персонажів — кімнати, спільні стріки, колекція результатів',
         lang: 'uk',
-        theme_color: '#6b8f47',
-        background_color: '#fdf6e8',
+        theme_color: '#2a1c10',
+        background_color: '#2a1c10',
         display: 'standalone',
         start_url: '/',
         icons: [

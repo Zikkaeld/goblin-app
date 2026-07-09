@@ -32,8 +32,11 @@
   --shadow: 0 6px 0 var(--wood-shadow), inset 0 0 0 2px var(--wood-border-light);
   --shadow-sm: 0 3px 0 var(--wood-shadow), inset 0 0 0 2px var(--wood-border-light);
 
-  --sans: 'Pixelify Sans', 'Segoe UI', system-ui, sans-serif;
-  --pixel-heading: 'Silkscreen', var(--sans);
+  /* JetBrains Mono: verified full, correct Cyrillic glyph coverage (і/ї/є/ґ) — see index.html comment */
+  --sans: 'JetBrains Mono', 'Segoe UI', system-ui, monospace;
+  /* Press Start 2P: verified full, correct Cyrillic glyph coverage — single weight (400) only */
+  --pixel-heading: 'Press Start 2P', var(--sans);
+  /* VT323 has NO cyrillic glyphs at all — only ever use this on elements that render pure digits/Latin */
   --pixel-mono: 'VT323', 'Segoe UI', monospace;
 
   font: 17px/150% var(--sans);
@@ -67,7 +70,9 @@ h1, h2, h3 {
   font-weight: 700;
   color: var(--text-h);
   margin: 0;
-  letter-spacing: 0.5px;
+  /* Press Start 2P already has generous built-in glyph spacing — extra
+     letter-spacing on top made large headings look stretched out. */
+  letter-spacing: normal;
   text-shadow: 1px 1px 0 var(--wood-shadow);
 }
 
