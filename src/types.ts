@@ -6,7 +6,8 @@ export type ThemeId =
   | 'dragon'
   | 'anime'
   | 'worker'
-  | 'brainrot';
+  | 'brainrot'
+  | 'affiliate';
 
 export interface ThemeInfo {
   id: ThemeId;
