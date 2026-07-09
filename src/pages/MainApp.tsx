@@ -24,6 +24,7 @@ import NavTabs, { type MainView } from '../components/NavTabs';
 import RoomsList from '../components/RoomsList';
 import RoomView from '../components/RoomView';
 import CollectionView from '../components/CollectionView';
+import ProfileView from '../components/ProfileView';
 import SoloRoll from '../components/SoloRoll';
 import AdModal from '../components/AdModal';
 import Toast from '../components/Toast';
@@ -55,7 +56,7 @@ export default function MainApp() {
 
   const [rooms, setRooms] = useState<Room[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(true);
-  const [mainView, setMainView] = useState<MainView>('rooms');
+  const [mainView, setMainView] = useState<MainView>('solo');
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
 
   const [roomRollStates, setRoomRollStates] = useState<Record<string, RollLimitState>>({});
@@ -346,8 +347,10 @@ export default function MainApp() {
       return;
     }
 
+    const resultWithId: RollResult = { ...result, rollId };
+
     setRoomRollStates((prev) => ({ ...prev, [roomId]: { ...state, freeUsed: state.freeUsed + 1 } }));
-    setRoomResults((prev) => ({ ...prev, [roomId]: result }));
+    setRoomResults((prev) => ({ ...prev, [roomId]: resultWithId }));
 
     const alreadyRolledToday = room.rolledTodayMemberIds.includes(profile.id);
     const newRolledIds = alreadyRolledToday ? room.rolledTodayMemberIds : [...room.rolledTodayMemberIds, profile.id];
@@ -379,16 +382,19 @@ export default function MainApp() {
   async function handleSoloRoll() {
     if (rollsRemaining(soloRollState) <= 0) return;
     const result = rollForTheme(soloTheme);
+    let rollId: string;
     try {
-      await recordRoll(null, profile.id, result);
+      rollId = await recordRoll(null, profile.id, result);
     } catch {
       showToast('Не вдалося зберегти кидок 😢');
       return;
     }
 
+    const resultWithId: RollResult = { ...result, rollId };
+
     setSoloRollState((prev) => ({ ...prev, freeUsed: prev.freeUsed + 1 }));
-    setSoloResult(result);
-    setSoloHistory((prev) => [result, ...prev]);
+    setSoloResult(resultWithId);
+    setSoloHistory((prev) => [resultWithId, ...prev]);
 
     const alreadyCompletedTheme = soloCompletedThemeIds.includes(soloTheme);
     const newCompletedThemeIds = alreadyCompletedTheme ? soloCompletedThemeIds : [...soloCompletedThemeIds, soloTheme];
@@ -482,7 +488,7 @@ export default function MainApp() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1 className="app-header__title">🎲 Хто ти сьогодні</h1>
+        <h1 className="app-header__title">🎲 Хто ти сьогодні?</h1>
         <span className="app-header__nickname">Привіт, {profile.nickname}!</span>
         <NavTabs
           active={mainView}
@@ -547,6 +553,8 @@ export default function MainApp() {
         )}
 
         {mainView === 'collection' && <CollectionView />}
+
+        {mainView === 'profile' && <ProfileView />}
       </main>
 
       {adModal && (

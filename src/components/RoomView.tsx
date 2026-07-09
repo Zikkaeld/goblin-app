@@ -140,7 +140,16 @@ export default function RoomView({
         {lastResult && (
           <ShareButton
             text={`Я сьогодні — ${lastResult.title} ${lastResult.emoji} (${RARITY_MAP[lastResult.rarity].label.toLowerCase()}) у кімнаті «${room.name}»! А ти хто сьогодні? 🎲`}
+            rollId={lastResult.rollId}
             onShared={onShare}
+            imageCard={{
+              title: lastResult.title,
+              emoji: lastResult.emoji,
+              rarity: lastResult.rarity,
+              themeLabel: theme.label,
+              themeEmoji: theme.emoji,
+              roomName: room.name,
+            }}
           />
         )}
       </div>

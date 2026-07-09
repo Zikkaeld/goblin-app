@@ -27,6 +27,7 @@ export interface RarityInfo {
 
 export interface RollResult {
   resultId: string;
+  rollId: string | null;
   title: string;
   emoji: string;
   flavor: string;

@@ -1,4 +1,4 @@
-export type MainView = 'rooms' | 'solo' | 'collection';
+export type MainView = 'rooms' | 'solo' | 'collection' | 'profile';
 
 interface NavTabsProps {
   active: MainView;
@@ -28,6 +28,13 @@ export default function NavTabs({ active, onChange }: NavTabsProps) {
         onClick={() => onChange('collection')}
       >
         🏆 Колекція
+      </button>
+      <button
+        type="button"
+        className={`nav-tabs__tab ${active === 'profile' ? 'nav-tabs__tab--active' : ''}`}
+        onClick={() => onChange('profile')}
+      >
+        👤 Профіль
       </button>
     </nav>
   );

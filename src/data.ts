@@ -471,6 +471,7 @@ export function rollForTheme(themeId: ThemeId): RollResult {
 
   return {
     resultId: `${themeId}-${seed.title}-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    rollId: null,
     title: seed.title,
     emoji: seed.emoji,
     flavor: seed.flavor,

@@ -32,6 +32,7 @@ export default function SoloRoll({
   history,
 }: SoloRollProps) {
   const theme = THEME_MAP[themeId];
+  const resultTheme = lastResult ? THEME_MAP[lastResult.themeId] : theme;
   const remaining = rollsRemaining(rollState);
   const questDone = completedThemeIds.length >= 4;
   const placeholders = Math.max(0, 4 - completedThemeIds.length);
@@ -73,8 +74,8 @@ export default function SoloRoll({
         <ThemePicker value={themeId} onChange={onThemeChange} />
       </div>
 
-      <div className="panel panel--roll" style={{ background: theme.gradient }}>
-        <h3 className="panel__title panel__title--light">{theme.emoji} {theme.label}</h3>
+      <div className="panel panel--roll" style={{ background: resultTheme.gradient }}>
+        <h3 className="panel__title panel__title--light">{resultTheme.emoji} {resultTheme.label}</h3>
         {lastResult && <ResultCard result={lastResult} />}
         <RollControls
           remaining={remaining}
@@ -85,8 +86,16 @@ export default function SoloRoll({
         />
         {lastResult && (
           <ShareButton
-            text={`Соло-ролл: я сьогодні — ${lastResult.title} ${lastResult.emoji} (${RARITY_MAP[lastResult.rarity].label.toLowerCase()}) у темі «${theme.label}»! 🎲`}
+            text={`Соло-ролл: я сьогодні — ${lastResult.title} ${lastResult.emoji} (${RARITY_MAP[lastResult.rarity].label.toLowerCase()}) у темі «${resultTheme.label}»! 🎲`}
+            rollId={lastResult.rollId}
             onShared={onShare}
+            imageCard={{
+              title: lastResult.title,
+              emoji: lastResult.emoji,
+              rarity: lastResult.rarity,
+              themeLabel: resultTheme.label,
+              themeEmoji: resultTheme.emoji,
+            }}
           />
         )}
       </div>

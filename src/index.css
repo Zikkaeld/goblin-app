@@ -1,40 +1,49 @@
 :root {
-  --bg: #fdf6e8;
-  --bg-alt: #fbeed4;
-  --text: #4a3f2c;
-  --text-h: #2e2717;
-  --card-bg: #fffaf0;
-  --border: #e7d7ae;
-  --moss: #6b8f47;
-  --moss-dark: #4f6b2c;
-  --mustard: #e0a930;
-  --orange: #f2994a;
-  --shadow: 0 8px 24px rgba(90, 62, 20, 0.12);
-  --shadow-sm: 0 4px 10px rgba(90, 62, 20, 0.1);
+  /* ---------- Woodland Carving design tokens ---------- */
+  --wood-bg: #2a1c10;
+  --wood-panel: #5a3d1f;
+  --wood-panel-dark: #3f2a15;
+  --wood-border: #2e1d0d;
+  --wood-border-light: #7a5530;
+  --wood-shadow: #1a0f06;
+  --forest-green: #6b8f47;
+  --forest-green-dark: #4f6b2c;
+  --forest-green-light: #9ed15a;
+  --forest-green-pale: #c9e08a;
+  --text-cream: #eadfc4;
+  --gold-accent: #ffc85e;
+  --gold-accent-dark: #c98f2e;
+  --danger: #d9534f;
+  --danger-dark: #8f2f2b;
 
-  --sans: 'Segoe UI', 'Nunito', system-ui, sans-serif;
+  /* ---------- Legacy aliases (kept so existing component CSS still resolves) ---------- */
+  --bg: var(--wood-bg);
+  --bg-alt: var(--wood-panel-dark);
+  --text: var(--text-cream);
+  --text-h: var(--forest-green-light);
+  --card-bg: var(--wood-panel);
+  --border: var(--wood-border);
+  --moss: var(--forest-green);
+  --moss-dark: var(--forest-green-dark);
+  --mustard: var(--gold-accent);
+  --orange: var(--gold-accent-dark);
+
+  /* Chunky, non-blurred "carved wood" shadows: hard drop-shadow + inset highlight ring */
+  --shadow: 0 6px 0 var(--wood-shadow), inset 0 0 0 2px var(--wood-border-light);
+  --shadow-sm: 0 3px 0 var(--wood-shadow), inset 0 0 0 2px var(--wood-border-light);
+
+  --sans: 'Pixelify Sans', 'Segoe UI', system-ui, sans-serif;
+  --pixel-heading: 'Silkscreen', var(--sans);
+  --pixel-mono: 'VT323', 'Segoe UI', monospace;
 
   font: 17px/150% var(--sans);
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
+  color-scheme: dark;
+  color: var(--text-cream);
+  background: var(--wood-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #241e14;
-    --bg-alt: #2e2618;
-    --text: #ecdfc2;
-    --text-h: #fff6e0;
-    --card-bg: #2f2818;
-    --border: #4a3f26;
-    --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    --shadow-sm: 0 4px 10px rgba(0, 0, 0, 0.35);
-  }
 }
 
 * {
@@ -43,7 +52,9 @@
 
 body {
   margin: 0;
-  background: radial-gradient(circle at top, var(--bg-alt), var(--bg) 60%);
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.02) 0 2px, transparent 2px 9px),
+    radial-gradient(circle at top, var(--wood-panel-dark), var(--wood-bg) 65%);
   min-height: 100svh;
 }
 
@@ -52,9 +63,12 @@ body {
 }
 
 h1, h2, h3 {
-  font-family: var(--sans);
+  font-family: var(--pixel-heading);
+  font-weight: 700;
   color: var(--text-h);
   margin: 0;
+  letter-spacing: 0.5px;
+  text-shadow: 1px 1px 0 var(--wood-shadow);
 }
 
 p {
@@ -62,6 +76,6 @@ p {
 }
 
 button {
-  font-family: var(--sans);
+  font-family: var(--pixel-heading);
   cursor: pointer;
 }

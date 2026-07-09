@@ -29,7 +29,7 @@ interface TodayRolls {
 export async function fetchMyRollsToday(roomId: string, profileId: string, themeId: ThemeId): Promise<TodayRolls> {
   const { data, error } = await supabase
     .from('rolls')
-    .select('result_title, result_emoji, rarity, created_at')
+    .select('id, result_title, result_emoji, rarity, created_at')
     .eq('room_id', roomId)
     .eq('profile_id', profileId)
     .eq('rolled_at', todayDateString())
@@ -44,6 +44,7 @@ export async function fetchMyRollsToday(roomId: string, profileId: string, theme
     lastResult: last
       ? {
           resultId: `${roomId}-${last.created_at}`,
+          rollId: last.id,
           title: last.result_title,
           emoji: last.result_emoji,
           flavor: findFlavorByTitle(themeId, last.result_title),
@@ -64,7 +65,7 @@ export interface SoloRollsToday {
 export async function fetchSoloRollsToday(profileId: string): Promise<SoloRollsToday> {
   const { data, error } = await supabase
     .from('rolls')
-    .select('result_title, result_emoji, rarity, theme_id, created_at')
+    .select('id, result_title, result_emoji, rarity, theme_id, created_at')
     .eq('profile_id', profileId)
     .is('room_id', null)
     .eq('rolled_at', todayDateString())
@@ -80,6 +81,7 @@ export async function fetchSoloRollsToday(profileId: string): Promise<SoloRollsT
   const history: RollResult[] = rows
     .map((row) => ({
       resultId: `solo-${row.created_at}`,
+      rollId: row.id,
       title: row.result_title,
       emoji: row.result_emoji,
       flavor: findFlavorByTitle(row.theme_id as ThemeId, row.result_title),
@@ -94,6 +96,7 @@ export async function fetchSoloRollsToday(profileId: string): Promise<SoloRollsT
     lastResult: last
       ? {
           resultId: `solo-${last.created_at}`,
+          rollId: last.id,
           title: last.result_title,
           emoji: last.result_emoji,
           flavor: findFlavorByTitle(last.theme_id as ThemeId, last.result_title),
@@ -108,6 +111,34 @@ export async function fetchSoloRollsToday(profileId: string): Promise<SoloRollsT
 export interface CollectedResult {
   themeId: ThemeId;
   title: string;
+}
+
+export interface PublicRollResult {
+  title: string;
+  emoji: string;
+  rarity: Rarity;
+  themeId: ThemeId | null;
+  nickname: string;
+}
+
+export async function fetchRollById(rollId: string): Promise<PublicRollResult | null> {
+  const { data, error } = await supabase
+    .from('rolls')
+    .select('result_title, result_emoji, rarity, theme_id, profiles(nickname)')
+    .eq('id', rollId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  const profileRow = data.profiles as unknown as { nickname: string } | null;
+
+  return {
+    title: data.result_title,
+    emoji: data.result_emoji,
+    rarity: data.rarity as Rarity,
+    themeId: data.theme_id as ThemeId | null,
+    nickname: profileRow?.nickname ?? 'Хтось',
+  };
 }
 
 export async function fetchCollectedResults(profileId: string): Promise<CollectedResult[]> {
