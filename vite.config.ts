@@ -26,6 +26,17 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // Force the new SW to activate immediately (don't wait for every open
+        // tab to close) and take control of already-open pages right away.
+        skipWaiting: true,
+        clientsClaim: true,
+        // Drop precache entries left behind by previous SW versions instead
+        // of leaving them in storage.
+        cleanupOutdatedCaches: true,
+        // Bumping this changes every Workbox cache name, orphaning whatever
+        // an already-installed client had cached and forcing a clean refetch.
+        // Bump again any time a deploy needs to force-bust installed PWAs.
+        cacheId: 'whou-v2',
       },
     }),
   ],
