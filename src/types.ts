@@ -2,13 +2,11 @@ export type ThemeId =
   | 'goblin'
   | 'vegetable'
   | 'frog'
-  | 'duck'
   | 'dragon'
-  | 'anime'
   | 'worker'
-  | 'brainrot'
   | 'affiliate'
-  | 'gamer';
+  | 'gamer'
+  | 'meme';
 
 export interface ThemeInfo {
   id: ThemeId;
